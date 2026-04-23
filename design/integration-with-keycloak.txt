@@ -1,0 +1,213 @@
+
+Hasura and Keycloak
+
+Here’s how to create Keycloak protocol mappers to embed Hasura-compatible role claims into JWT tokens.
+
+⸻
+
+🎯 Goal
+
+Produce a JWT like this:
+
+{
+  "https://hasura.io/jwt/claims": {
+    "x-hasura-default-role": "user",
+    "x-hasura-allowed-roles": ["user", "admin"],
+    "x-hasura-user-id": "123"
+  }
+}
+
+
+⸻
+
+🛠️ Step-by-Step: Create Protocol Mappers in Keycloak
+
+Assuming:
+	•	Realm: myrealm
+	•	Client: myapp-client
+	•	Roles assigned to users at realm level
+
+⸻
+
+🔹 Step 1: Add a Group/Role Claim for x-hasura-allowed-roles
+	1.	Go to: Clients > myapp-client > Mappers > Create
+	2.	Fill in:
+	•	Name: x-hasura-allowed-roles
+	•	Mapper Type: User Realm Role
+	•	Token Claim Name: https://hasura.io/jwt/claims.x-hasura-allowed-roles
+	•	Claim JSON Type: String
+	•	Add to ID Token: ON
+	•	Add to Access Token: ON
+	•	Multivalued: ON
+
+This exposes all assigned realm roles as the x-hasura-allowed-roles claim.
+
+⸻
+
+🔹 Step 2: Add a Hardcoded Default Role (x-hasura-default-role)
+	1.	Go to: Clients > myapp-client > Mappers > Create
+	2.	Fill in:
+	•	Name: x-hasura-default-role
+	•	Mapper Type: Hardcoded Claim
+	•	Token Claim Name: https://hasura.io/jwt/claims.x-hasura-default-role
+	•	Claim Value: user
+	•	Claim JSON Type: String
+	•	Add to Access Token / ID Token: ON
+
+This sets the user’s default Hasura role. You could dynamically set this with a User Attribute if needed.
+
+⸻
+
+🔹 Step 3: Add User ID as a Claim (x-hasura-user-id)
+	1.	Go to: Clients > myapp-client > Mappers > Create
+	2.	Fill in:
+	•	Name: x-hasura-user-id
+	•	Mapper Type: User Property
+	•	Property: id or username or email
+	•	Token Claim Name: https://hasura.io/jwt/claims.x-hasura-user-id
+	•	Claim JSON Type: String
+	•	Add to Access Token: ON
+
+This allows row-level security in Hasura by filtering using x-hasura-user-id.
+
+⸻
+
+✅ Resulting Claims in JWT
+
+After a login via Keycloak, decoding the access token will show:
+
+{
+  "sub": "a0b1c2d3",
+  "email": "alice@example.com",
+  "https://hasura.io/jwt/claims": {
+    "x-hasura-default-role": "user",
+    "x-hasura-allowed-roles": ["user", "admin"],
+    "x-hasura-user-id": "a0b1c2d3"
+  }
+}
+
+
+⸻
+
+Let me know if you’d like a JSON export of the mappers or a preconfigured Keycloak realm file to import directly.
+
+{
+  "realm": "hasura-demo",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "user" },
+      { "name": "admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "hasura-client",
+      "name": "hasura-client",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["*"],
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "attributes": {
+        "access.token.lifespan": "3600"
+      },
+      "protocolMappers": [
+        {
+          "name": "x-hasura-default-role",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.value": "user",
+            "claim.name": "https://hasura.io/jwt/claims.x-hasura-default-role",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "x-hasura-allowed-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "user.attribute": "roles",
+            "claim.name": "https://hasura.io/jwt/claims.x-hasura-allowed-roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "x-hasura-user-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "https://hasura.io/jwt/claims.x-hasura-user-id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "admin"]
+    }
+  ]
+}
+
+✅ Import Instructions
+	1.	Go to the Keycloak Admin Console
+	2.	Click on “Add Realm” > “Import”
+	3.	Upload the above JSON
+	4.	Realm will appear as hasura-demo
+
+Once imported, use Alice’s credentials to log in and fetch a JWT, then inspect it at jwt.io to verify the Hasura claims.
+
+⸻
+
+Would you also like:
+	•	A working docker-compose with Hasura + Postgres + Keycloak?
+	•	Postman collection to test login/token + Hasura GraphQL access?
+
+Let me know how you’d like to build on this.
+
+I’ve packaged a ready-to-import Postman v2.1 collection that:
+	1.	Logs in to Keycloak (Get Keycloak Token)
+– Saves the returned access_token to a collection variable.
+	2.	Calls Hasura’s GraphQL endpoint (Hasura GraphQL Query)
+– Sends the JWT in the Authorization header and runs a sample query.
+– Includes basic Postman tests for each step.
+
+All endpoints, credentials, and IDs are set to the values from the realm file I shared earlier (you can tweak them in “Variables” or per-request).
+
+Download the collection JSON and import it into Postman:
+
+Download the Postman collection
+
+Next steps
+	1.	Import the collection into Postman.
+	2.	If your Keycloak/Hasura hosts or credentials differ, open the collection’s “Variables” tab and overwrite:
+	•	KEYCLOAK_HOST, REALM, CLIENT_ID, USERNAME, PASSWORD, HASURA_ENDPOINT.
+	3.	Run “Get Keycloak Token”. A successful 200 response stores ACCESS_TOKEN.
+	4.	Immediately run “Hasura GraphQL Query”. You should receive data (or Hasura permission errors if your table/permissions differ).
+
+Feel free to add more GraphQL operations or token-protected REST calls – just reuse the {{ACCESS_TOKEN}} variable in the Authorization header. Let me know if you’d like an environment file or additional sample queries! 
+
+

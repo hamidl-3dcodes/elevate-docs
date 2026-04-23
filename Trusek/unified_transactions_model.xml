@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="1-create-transactions-table" author="chatgpt">
+        <createTable tableName="transactions">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="product_type" type="VARCHAR(20)"/>
+            <column name="product_reference_id" type="UUID"/>
+            <column name="customer_id" type="UUID"/>
+            <column name="amount" type="NUMERIC(18,2)"/>
+            <column name="currency" type="VARCHAR(3)"/>
+            <column name="direction" type="VARCHAR(10)"/>
+            <column name="status" type="VARCHAR(20)"/>
+            <column name="reference" type="VARCHAR(255)"/>
+            <column name="description" type="TEXT"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="settled_at" type="TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2-create-card-transactions" author="chatgpt">
+        <createTable tableName="card_transactions">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" referencedTableName="transactions" referencedColumnNames="id" foreignKeyName="fk_card_txn"/>
+            </column>
+            <column name="card_id" type="UUID"/>
+            <column name="merchant_id" type="VARCHAR(255)"/>
+            <column name="original_currency" type="VARCHAR(3)"/>
+            <column name="original_amount" type="NUMERIC(18,2)"/>
+            <column name="fx_rate" type="NUMERIC(10,6)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="3-create-remittance-transactions" author="chatgpt">
+        <createTable tableName="remittance_transactions">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" referencedTableName="transactions" referencedColumnNames="id" foreignKeyName="fk_remit_txn"/>
+            </column>
+            <column name="sender_wallet_id" type="UUID"/>
+            <column name="beneficiary_name" type="VARCHAR(255)"/>
+            <column name="beneficiary_bank" type="VARCHAR(255)"/>
+            <column name="beneficiary_iban" type="VARCHAR(34)"/>
+            <column name="payout_currency" type="VARCHAR(3)"/>
+            <column name="fx_rate" type="NUMERIC(10,6)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="4-create-fx-transactions" author="chatgpt">
+        <createTable tableName="fx_transactions">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" referencedTableName="transactions" referencedColumnNames="id" foreignKeyName="fk_fx_txn"/>
+            </column>
+            <column name="from_currency" type="VARCHAR(3)"/>
+            <column name="to_currency" type="VARCHAR(3)"/>
+            <column name="fx_rate" type="NUMERIC(10,6)"/>
+            <column name="source_amount" type="NUMERIC(18,2)"/>
+            <column name="target_amount" type="NUMERIC(18,2)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="5-create-crypto-transactions" author="chatgpt">
+        <createTable tableName="crypto_transactions">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" referencedTableName="transactions" referencedColumnNames="id" foreignKeyName="fk_crypto_txn"/>
+            </column>
+            <column name="crypto_asset" type="VARCHAR(10)"/>
+            <column name="crypto_amount" type="NUMERIC(18,8)"/>
+            <column name="wallet_address" type="VARCHAR(255)"/>
+            <column name="exchange_rate" type="NUMERIC(10,6)"/>
+            <column name="fiat_value" type="NUMERIC(18,2)"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
